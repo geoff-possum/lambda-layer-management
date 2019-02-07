@@ -1,0 +1,80 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Creates Core Lambda Layers for the specified Runtime",
+  "Parameters": {
+    "LayerRuntime" : {
+      "Description" : "Runtime of the Layer",
+      "Type" : "String",
+      "AllowedValues" : [ "nodejs8.10", "nodejs6.10", "python3.7", "python3.6", "python2.7", "ruby2.5", "java-1.8.0-openjdk", "go1.x", "dotnetcore2.1", "dotnetcore2.0", "dotnetcore1.0" ]
+    },
+    "ExampleLayerS3Url" : {
+      "Type": "String",
+      "Description": "The S3 URL of the Zip file of the software for the Lambda Layer",
+      "Default": "s3://bucket_name/zip_key?version=zip_version"
+    },
+    "CRBaseStackName" : {
+      "Type": "String",
+      "Description": "The name of the stack containing the Base lambda functions for Custom Resources",
+      "Default": "CRBase-YYYYMMDD"
+    }
+  },
+  "Resources": {
+    "ExampleLayerSplitter": {
+      "Type": "Custom::S3UrlSplitter",
+      "Properties": {
+          "ServiceToken": { "Fn::ImportValue" : { "Fn::Sub" : "${CRBaseStackName}-S3UrlSplitter" } },
+          "S3Url": { "Ref": "ExampleLayerS3Url" }
+      }
+    },
+    "ExampleLayer": {
+      "Type" : "AWS::Lambda::LayerVersion",
+      "Properties" : {
+        "CompatibleRuntimes" : [ { "Ref" : "LayerRuntime" } ],
+        "Content" : {
+          "S3Bucket" : { "Fn::GetAtt" : [ "ExampleLayerSplitter", "S3Bucket" ] },
+          "S3Key" : { "Fn::GetAtt" : [ "ExampleLayerSplitter", "S3Key" ] },
+          "S3ObjectVersion" :  { "Fn::GetAtt" : [ "ExampleLayerSplitter", "S3ObjectVersion" ] }
+        },
+        "Description" : "Example Core Lambda Layer",
+        "LayerName" : { 
+          "Fn::Sub" : [ 
+            "${StackName}-${StackFeature}-${VariableName}", 
+            { 
+              "StackName" : { "Ref" : "AWS::StackName" },
+              "StackFeature" : { 
+                "Fn::Join" : [
+                  "-",
+                  { "Fn::Split" : [ ".", { "Ref" : "LayerRuntime" } ] }
+                ]
+              },
+              "VariableName" : "ExampleLayer"
+            }
+          ] 
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "ExampleLayer" : {
+      "Description" : "Example Lambda Layer",
+      "Value": { "Ref" : "ExampleLayer" },
+      "Export": { 
+        "Name" : { 
+          "Fn::Sub" : [ 
+            "${StackName}-${StackFeature}-${VariableName}", 
+            { 
+              "StackName" : { "Ref" : "AWS::StackName" },
+              "StackFeature" : { 
+                "Fn::Join" : [
+                  "-",
+                  { "Fn::Split" : [ ".", { "Ref" : "LayerRuntime" } ] }
+                ]
+              },
+              "VariableName" : "ExampleLayer"
+            }
+          ] 
+        } 
+      }
+    }
+  }
+}
